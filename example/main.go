@@ -1,115 +1,117 @@
+//go:build windows
+
 package main
 
 import (
 	"fmt"
-	"time"
+	"unsafe"
 
-	"fyne.io/systray"
-	"fyne.io/systray/example/icon"
+	"github.com/merlinz01/systray"
+	"golang.org/x/sys/windows"
 )
 
 func main() {
-	onExit := func() {
-		now := time.Now()
-		fmt.Println("Exit at", now.String())
-	}
-
 	systray.Run(onReady, onExit)
-	fmt.Println("Finished quitting")
-}
-
-func addQuitItem() {
-	mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
-	mQuit.Enable()
-	go func() {
-		<-mQuit.ClickedCh
-		fmt.Println("Requesting quit")
-		systray.Quit()
-	}()
-	systray.AddSeparator()
 }
 
 func onReady() {
-	systray.SetTemplateIcon(icon.Data, icon.Data)
-	systray.SetTitle("Awesome App")
-	systray.SetTooltip("Lantern")
-	addQuitItem()
+	systray.SetIconFromFilePath("example/app.ico")
+	systray.SetTooltip("Unicode works here 棒棒嗒")
+	systray.SetOpenOnLeftClick(false)
+	systray.SetOpenOnRightClick(true)
 
-	// We can manipulate the systray in other goroutines
-	go func() {
-		systray.SetTemplateIcon(icon.Data, icon.Data)
-		systray.SetTitle("Awesome App")
-		systray.SetTooltip("Pretty awesome棒棒嗒")
-		trayOpenedCount := 0
-		mOpenedCount := systray.AddMenuItem("Tray opened count", "Tray opened count")
-		mChange := systray.AddMenuItem("Change Me", "Change Me")
-		mAllowRemoval := systray.AddMenuItem("Allow removal", "macOS only: allow removal of the icon when cmd is pressed")
-		mChecked := systray.AddMenuItemCheckbox("Checked", "Check Me", true)
-		mEnabled := systray.AddMenuItem("Enabled", "Enabled")
-		// Sets the icon of a menu item. Only available on Mac.
-		mEnabled.SetTemplateIcon(icon.Data, icon.Data)
+	systray.AddMenuItem("Quit").SetCallback(systray.Quit)
 
-		systray.AddMenuItem("Ignored", "Ignored")
+	systray.AddSeparator()
 
-		subMenuTop := systray.AddMenuItem("SubMenuTop", "SubMenu Test (top)")
-		subMenuMiddle := subMenuTop.AddSubMenuItem("SubMenuMiddle", "SubMenu Test (middle)")
-		subMenuBottom := subMenuMiddle.AddSubMenuItemCheckbox("SubMenuBottom - Toggle Panic!", "SubMenu Test (bottom) - Hide/Show Panic!", false)
-		subMenuMiddle.AddSeparator()
-		subMenuBottom2 := subMenuMiddle.AddSubMenuItem("SubMenuBottom - Panic!", "SubMenu Test (bottom)")
+	trayOpenedCount := 0
 
-		systray.AddSeparator()
-		mToggle := systray.AddMenuItem("Toggle", "Toggle some menu items")
-		shown := true
-		toggle := func() {
-			if shown {
-				subMenuBottom.Check()
-				subMenuBottom2.Hide()
-				mEnabled.Hide()
-				shown = false
-			} else {
-				subMenuBottom.Uncheck()
-				subMenuBottom2.Show()
-				mEnabled.Show()
-				shown = true
-			}
+	mOpenedCount := systray.AddMenuItem("<this text will be replaced>")
+	mOpenedCount.Disable()
+
+	mChange := systray.AddMenuItem("Click to change me")
+	mChange.SetCallback(func() {
+		mChange.SetTitle("I've Changed")
+	})
+
+	mChecked := systray.AddMenuItem("Checked")
+	mChecked.Check()
+	mChecked.SetCallback(func() {
+		if mChecked.Checked() {
+			mChecked.Uncheck()
+			mChecked.SetTitle("Unchecked")
+		} else {
+			mChecked.Check()
+			mChecked.SetTitle("Checked")
 		}
-		mReset := systray.AddMenuItem("Reset", "Reset all items")
+	})
 
-		for {
-			select {
-			case <-mChange.ClickedCh:
-				mChange.SetTitle("I've Changed")
-			case <-mChecked.ClickedCh:
-				if mChecked.Checked() {
-					mChecked.Uncheck()
-					mChecked.SetTitle("Unchecked")
-				} else {
-					mChecked.Check()
-					mChecked.SetTitle("Checked")
-				}
-			case <-mAllowRemoval.ClickedCh:
-				systray.SetRemovalAllowed(true)
-				go func() {
-					time.Sleep(5 * time.Second)
-					fmt.Printf("Time's up! setting back to no-removal-allowed on macOS.\n")
-					systray.SetRemovalAllowed(false)
-				}()
-			case <-mEnabled.ClickedCh:
-				mEnabled.SetTitle("Disabled")
-				mEnabled.Disable()
-			case <-subMenuBottom2.ClickedCh:
-				panic("panic button pressed")
-			case <-subMenuBottom.ClickedCh:
-				toggle()
-			case <-mReset.ClickedCh:
-				systray.ResetMenu()
-				addQuitItem()
-			case <-mToggle.ClickedCh:
-				toggle()
-			case <-systray.TrayOpenedCh:
-				trayOpenedCount++
-				mOpenedCount.SetTitle(fmt.Sprintf("Tray opened count: %d", trayOpenedCount))
-			}
+	mEnabled := systray.AddMenuItem("Click to disable me")
+	mEnabled.SetCallback(func() {
+		mEnabled.SetTitle("Disabled")
+		mEnabled.Disable()
+	})
+
+	systray.AddMenuItem("I do nothing").SetIconFromFilePath("example/app.ico")
+
+	subMenuTop := systray.AddMenuItem("This is a submenu")
+
+	subMenuMiddle := subMenuTop.AddSubMenuItem("This is a submenu of the submenu")
+
+	subMenuMiddle.AddSubMenuItem("Panic!").SetCallback(func() {
+		panic("panic button pressed")
+	})
+
+	subMenuMiddle.AddSubMenuItem("This is a submenu of the submenu of the submenu")
+
+	systray.AddSeparator()
+
+	mToggle := systray.AddMenuItem("Hide/show some menu items")
+	shown := true
+	toggle := func() {
+		if shown {
+			mEnabled.Hide()
+			mChange.Hide()
+			mChecked.Hide()
+			shown = false
+		} else {
+			mEnabled.Show()
+			mChange.Show()
+			mChecked.Show()
+			shown = true
 		}
-	}()
+	}
+	mToggle.SetCallback(toggle)
+
+	systray.AddMenuItem("Reset all items").SetCallback(func() {
+		systray.ResetMenu()
+		systray.AddMenuItem("Quit").SetCallback(systray.Quit)
+		trayOpenedCount = -1
+	})
+
+	systray.OnTrayOpened(func() {
+		if trayOpenedCount == -1 {
+			return
+		}
+		trayOpenedCount++
+		mOpenedCount.SetTitle(fmt.Sprintf("The menu has been opened %d time(s)", trayOpenedCount))
+	})
+}
+
+func onExit() {
+	showMessageBox("Goodbye", "onExit called")
+}
+
+func showMessageBox(title string, message string) {
+	hUser32 := windows.NewLazySystemDLL("user32.dll")
+	hMessageBox := hUser32.NewProc("MessageBoxW")
+	pTitle, err := windows.UTF16PtrFromString(title)
+	if err != nil {
+		panic(err)
+	}
+	pMessage, err := windows.UTF16PtrFromString(message)
+	if err != nil {
+		panic(err)
+	}
+	hMessageBox.Call(0, uintptr(unsafe.Pointer(pMessage)), uintptr(unsafe.Pointer(pTitle)), 0x40)
 }
