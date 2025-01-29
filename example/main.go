@@ -20,13 +20,12 @@ func main() {
 
 func addQuitItem() {
 	mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
-	mQuit.Enable()
 	go func() {
-		<-mQuit.ClickedCh
-		fmt.Println("Requesting quit")
-		systray.Quit()
+		for range mQuit.ClickedCh {
+			fmt.Println("Requesting quit")
+			systray.Quit()
+		}
 	}()
-	systray.AddSeparator()
 }
 
 func onReady() {
@@ -34,6 +33,7 @@ func onReady() {
 	systray.SetTitle("Awesome App")
 	systray.SetTooltip("Lantern")
 	addQuitItem()
+	systray.AddSeparator()
 
 	// We can manipulate the systray in other goroutines
 	go func() {
@@ -75,11 +75,13 @@ func onReady() {
 		}
 		mReset := systray.AddMenuItem("Reset", "Reset all items")
 
-		for {
-			select {
-			case <-mChange.ClickedCh:
+		go func() {
+			for range mChange.ClickedCh {
 				mChange.SetTitle("I've Changed")
-			case <-mChecked.ClickedCh:
+			}
+		}()
+		go func() {
+			for range mChecked.ClickedCh {
 				if mChecked.Checked() {
 					mChecked.Uncheck()
 					mChecked.SetTitle("Unchecked")
@@ -87,29 +89,50 @@ func onReady() {
 					mChecked.Check()
 					mChecked.SetTitle("Checked")
 				}
-			case <-mAllowRemoval.ClickedCh:
+			}
+		}()
+		go func() {
+			for range mAllowRemoval.ClickedCh {
 				systray.SetRemovalAllowed(true)
 				go func() {
 					time.Sleep(5 * time.Second)
 					fmt.Printf("Time's up! setting back to no-removal-allowed on macOS.\n")
 					systray.SetRemovalAllowed(false)
 				}()
-			case <-mEnabled.ClickedCh:
+			}
+		}()
+		go func() {
+			for range mEnabled.ClickedCh {
 				mEnabled.SetTitle("Disabled")
 				mEnabled.Disable()
-			case <-subMenuBottom2.ClickedCh:
+			}
+		}()
+		go func() {
+			for range subMenuBottom2.ClickedCh {
 				panic("panic button pressed")
-			case <-subMenuBottom.ClickedCh:
+			}
+		}()
+		go func() {
+			for range subMenuBottom.ClickedCh {
 				toggle()
-			case <-mReset.ClickedCh:
+			}
+		}()
+		go func() {
+			for range mReset.ClickedCh {
 				systray.ResetMenu()
 				addQuitItem()
-			case <-mToggle.ClickedCh:
+			}
+		}()
+		go func() {
+			for range mToggle.ClickedCh {
 				toggle()
-			case <-systray.TrayOpenedCh:
+			}
+		}()
+		go func() {
+			for range systray.TrayOpenedCh {
 				trayOpenedCount++
 				mOpenedCount.SetTitle(fmt.Sprintf("Tray opened count: %d", trayOpenedCount))
 			}
-		}
+		}()
 	}()
 }
