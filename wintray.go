@@ -221,12 +221,18 @@ func ResetMenu() {
 			item.Remove()
 		}
 	}
-	_, _, _ = pDestroyMenu.Call(uintptr(wt.menus[0]))
+	_, _, err := pDestroyMenu.Call(uintptr(wt.menus[0]))
+	if err != nil {
+		log.Printf("systray error: failed to destroy menu: %s\n", err)
+	}
 	wt.visibleItems = make(map[uint32][]uint32)
 	wt.menus = make(map[uint32]windows.Handle)
 	wt.menuOf = make(map[uint32]windows.Handle)
 	wt.menuItemIcons = make(map[uint32]windows.Handle)
-	wt.createMenu()
+	err = wt.createMenu()
+	if err != nil {
+		log.Printf("systray error: failed to create menu: %s\n", err)
+	}
 }
 
 // Quit the systray message loop.
@@ -293,7 +299,7 @@ func (item *MenuItem) Disable() {
 func (item *MenuItem) Hide() {
 	err := wt.hideMenuItem(uint32(item.id), item.parentId())
 	if err != nil {
-		log.Printf("systray error: unable to hideMenuItem: %s\n", err)
+		log.Printf("systray error: failed to hide menu item: %s\n", err)
 	}
 }
 
@@ -533,21 +539,21 @@ func (t *winTray) initInstance() error {
 
 	instanceHandle, _, err := pGetModuleHandle.Call(0)
 	if instanceHandle == 0 {
-		return err
+		return fmt.Errorf("failed to get executable module handle: %w", err)
 	}
 	t.instance = windows.Handle(instanceHandle)
 
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms648072(v=vs.85).aspx
 	iconHandle, _, err := pLoadIcon.Call(0, uintptr(IDI_APPLICATION))
 	if iconHandle == 0 {
-		return err
+		return fmt.Errorf("failed to load icon: %w", err)
 	}
 	t.icon = windows.Handle(iconHandle)
 
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms648391(v=vs.85).aspx
 	cursorHandle, _, err := pLoadCursor.Call(0, uintptr(IDC_ARROW))
 	if cursorHandle == 0 {
-		return err
+		return fmt.Errorf("failed to load cursor: %w", err)
 	}
 	t.cursor = windows.Handle(cursorHandle)
 
@@ -572,7 +578,7 @@ func (t *winTray) initInstance() error {
 		IconSm:     t.icon,
 	}
 	if err := t.wcex.register(); err != nil {
-		return err
+		return fmt.Errorf("failed to register window class: %w", err)
 	}
 
 	windowHandle, _, err := pCreateWindowEx.Call(
@@ -590,7 +596,7 @@ func (t *winTray) initInstance() error {
 		uintptr(0),
 	)
 	if windowHandle == 0 {
-		return err
+		return fmt.Errorf("failed to create window: %w", err)
 	}
 	t.window = windows.Handle(windowHandle)
 
@@ -613,7 +619,11 @@ func (t *winTray) initInstance() error {
 	}
 	t.nid.Size = uint32(unsafe.Sizeof(*t.nid))
 
-	return t.nid.add()
+	err = t.nid.add()
+	if err != nil {
+		return fmt.Errorf("failed to create taskbar icon: %w", err)
+	}
+	return nil
 }
 
 // Create the main popup menu.
@@ -1098,16 +1108,15 @@ func iconBytesToFilePath(iconBytes []byte) (string, error) {
 
 // Set the systray icon.
 // iconBytes should be the content of .ico image.
-func SetIcon(iconBytes []byte) {
+func SetIcon(iconBytes []byte) error {
 	iconFilePath, err := iconBytesToFilePath(iconBytes)
 	if err != nil {
-		log.Printf("systray error: unable to write icon data to temp file: %s\n", err)
-		return
+		return fmt.Errorf("failed to write icon data to temp file: %w", err)
 	}
 	if err := wt.setIcon(iconFilePath); err != nil {
-		log.Printf("systray error: unable to set icon: %s\n", err)
-		return
+		return fmt.Errorf("failed to set icon: %w", err)
 	}
+	return nil
 }
 
 // Set the systray icon from a file path.
@@ -1126,23 +1135,20 @@ func (item *MenuItem) parentId() uint32 {
 
 // Set the icon of a menu item.
 // iconBytes should be the content of .ico image.
-func (item *MenuItem) SetIcon(iconBytes []byte) {
+func (item *MenuItem) SetIcon(iconBytes []byte) error {
 	iconFilePath, err := iconBytesToFilePath(iconBytes)
 	if err != nil {
-		log.Printf("systray error: unable to write icon data to temp file: %s\n", err)
-		return
+		return fmt.Errorf("failed to get icon file path: %w", err)
 	}
 
 	h, err := wt.loadIconFrom(iconFilePath)
 	if err != nil {
-		log.Printf("systray error: unable to load icon from temp file: %s\n", err)
-		return
+		return fmt.Errorf("failed to load icon: %w", err)
 	}
 
 	h, err = iconToBitmap(h)
 	if err != nil {
-		log.Printf("systray error: unable to convert icon to bitmap: %s\n", err)
-		return
+		return fmt.Errorf("failed to convert icon to bitmap: %w", err)
 	}
 	wt.muMenuItemIcons.Lock()
 	wt.menuItemIcons[uint32(item.id)] = h
@@ -1150,9 +1156,9 @@ func (item *MenuItem) SetIcon(iconBytes []byte) {
 
 	err = wt.addOrUpdateMenuItem(uint32(item.id), item.parentId(), item.title, item.disabled, item.checked)
 	if err != nil {
-		log.Printf("systray error: unable to addOrUpdateMenuItem: %s\n", err)
-		return
+		return fmt.Errorf("failed to update menu item: %w", err)
 	}
+	return nil
 }
 
 // Set the icon of a menu item from a file path.
@@ -1160,12 +1166,12 @@ func (item *MenuItem) SetIcon(iconBytes []byte) {
 func (item *MenuItem) SetIconFromFilePath(iconFilePath string) error {
 	h, err := wt.loadIconFrom(iconFilePath)
 	if err != nil {
-		return fmt.Errorf("unable to load icon from file: %w", err)
+		return fmt.Errorf("failed to load icon: %w", err)
 	}
 
 	h, err = iconToBitmap(h)
 	if err != nil {
-		return fmt.Errorf("unable to convert icon to bitmap: %w", err)
+		return fmt.Errorf("failed to convert icon to bitmap: %w", err)
 	}
 	wt.muMenuItemIcons.Lock()
 	wt.menuItemIcons[uint32(item.id)] = h
@@ -1173,22 +1179,20 @@ func (item *MenuItem) SetIconFromFilePath(iconFilePath string) error {
 
 	err = wt.addOrUpdateMenuItem(uint32(item.id), item.parentId(), item.title, item.disabled, item.checked)
 	if err != nil {
-		return fmt.Errorf("unable to addOrUpdateMenuItem: %w", err)
+		return fmt.Errorf("failed to update menu item: %w", err)
 	}
 	return nil
 }
 
 // Set the tooltip to display on mouse hover of the tray icon.
-func SetTooltip(tooltip string) {
+func SetTooltip(tooltip string) error {
 	if !wt.isReady() {
-		log.Printf("systray error: unable to set tooltip: %s\n", ErrTrayNotReadyYet)
-		return
+		return ErrTrayNotReadyYet
 	}
 	const NIF_TIP = 0x00000004
 	b, err := windows.UTF16FromString(tooltip)
 	if err != nil {
-		log.Printf("systray error: unable to set tooltip: %s\n", err)
-		return
+		return err
 	}
 	wt.muNID.Lock()
 	defer wt.muNID.Unlock()
@@ -1197,16 +1201,16 @@ func SetTooltip(tooltip string) {
 	wt.nid.Size = uint32(unsafe.Sizeof(*wt.nid))
 	err = wt.nid.modify()
 	if err != nil {
-		log.Printf("systray error: unable to set tooltip: %s\n", err)
+		return fmt.Errorf("failed to set tooltip: %w", err)
 	}
+	return nil
 }
 
 // Add or update a menu item.
 func addOrUpdateMenuItem(item *MenuItem) {
 	err := wt.addOrUpdateMenuItem(uint32(item.id), item.parentId(), item.title, item.disabled, item.checked)
 	if err != nil {
-		log.Printf("systray error: unable to addOrUpdateMenuItem: %s\n", err)
-		return
+		log.Printf("systray error: unable to add or update menu item: %s\n", err)
 	}
 }
 
@@ -1214,7 +1218,6 @@ func addOrUpdateMenuItem(item *MenuItem) {
 func addSeparator(id uint32, parent uint32) {
 	err := wt.addSeparatorMenuItem(id, parent)
 	if err != nil {
-		log.Printf("systray error: unable to addSeparator: %s\n", err)
-		return
+		log.Printf("systray error: unable to add separator: %s\n", err)
 	}
 }

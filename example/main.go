@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	wintray.Run(onReady, onExit)
+	err := wintray.Run(onReady, onExit)
+	if err != nil {
+		showMessageBox("Error", err.Error())
+	}
 }
 
 func onReady() {
