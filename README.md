@@ -1,6 +1,6 @@
-# systray
+# wintray
 
-systray is a Windows-specific Go library to place an icon and menu in the notification area.
+wintray is a Windows-specific Go library to place an icon and menu in the notification area.
 
 ## Usage
 
@@ -10,8 +10,8 @@ See [example/main.go](example/main.go) for more details.
 To run the example app, run the following commands:
 
 ```sh
-git clone https://github.com/merlinz01/systray
-cd systray
+git clone https://github.com/merlinz01/wintray
+cd wintray
 
 go run ./example
 # or, to hide the console window when not running in a terminal

@@ -1,7 +1,7 @@
 //go:build windows
 
-// Package systray is a Windows-specific Go library to place an icon and menu in the notification area.
-package systray
+// Package wintray is a Windows-specific Go library to place an icon and menu in the notification area.
+package wintray
 
 import (
 	"crypto/md5"

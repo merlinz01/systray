@@ -6,35 +6,35 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/merlinz01/systray"
+	"github.com/merlinz01/wintray"
 	"golang.org/x/sys/windows"
 )
 
 func main() {
-	systray.Run(onReady, onExit)
+	wintray.Run(onReady, onExit)
 }
 
 func onReady() {
-	systray.SetIconFromFilePath("example/app.ico")
-	systray.SetTooltip("Unicode works here 棒棒嗒")
-	systray.SetOpenOnLeftClick(false)
-	systray.SetOpenOnRightClick(true)
+	wintray.SetIconFromFilePath("example/app.ico")
+	wintray.SetTooltip("Unicode works here 棒棒嗒")
+	wintray.SetOpenOnLeftClick(false)
+	wintray.SetOpenOnRightClick(true)
 
-	systray.AddMenuItem("Quit").SetCallback(systray.Quit)
+	wintray.AddMenuItem("Quit").SetCallback(wintray.Quit)
 
-	systray.AddSeparator()
+	wintray.AddSeparator()
 
 	trayOpenedCount := 0
 
-	mOpenedCount := systray.AddMenuItem("<this text will be replaced>")
+	mOpenedCount := wintray.AddMenuItem("<this text will be replaced>")
 	mOpenedCount.Disable()
 
-	mChange := systray.AddMenuItem("Click to change me")
+	mChange := wintray.AddMenuItem("Click to change me")
 	mChange.SetCallback(func() {
 		mChange.SetTitle("I've Changed")
 	})
 
-	mChecked := systray.AddMenuItem("Checked")
+	mChecked := wintray.AddMenuItem("Checked")
 	mChecked.Check()
 	mChecked.SetCallback(func() {
 		if mChecked.Checked() {
@@ -46,15 +46,15 @@ func onReady() {
 		}
 	})
 
-	mEnabled := systray.AddMenuItem("Click to disable me")
+	mEnabled := wintray.AddMenuItem("Click to disable me")
 	mEnabled.SetCallback(func() {
 		mEnabled.SetTitle("Disabled")
 		mEnabled.Disable()
 	})
 
-	systray.AddMenuItem("I do nothing").SetIconFromFilePath("example/app.ico")
+	wintray.AddMenuItem("I do nothing").SetIconFromFilePath("example/app.ico")
 
-	subMenuTop := systray.AddMenuItem("This is a submenu")
+	subMenuTop := wintray.AddMenuItem("This is a submenu")
 
 	subMenuMiddle := subMenuTop.AddSubMenuItem("This is a submenu of the submenu")
 
@@ -64,9 +64,9 @@ func onReady() {
 
 	subMenuMiddle.AddSubMenuItem("This is a submenu of the submenu of the submenu")
 
-	systray.AddSeparator()
+	wintray.AddSeparator()
 
-	mToggle := systray.AddMenuItem("Hide/show some menu items")
+	mToggle := wintray.AddMenuItem("Hide/show some menu items")
 	shown := true
 	toggle := func() {
 		if shown {
@@ -83,13 +83,13 @@ func onReady() {
 	}
 	mToggle.SetCallback(toggle)
 
-	systray.AddMenuItem("Reset all items").SetCallback(func() {
-		systray.ResetMenu()
-		systray.AddMenuItem("Quit").SetCallback(systray.Quit)
+	wintray.AddMenuItem("Reset all items").SetCallback(func() {
+		wintray.ResetMenu()
+		wintray.AddMenuItem("Quit").SetCallback(wintray.Quit)
 		trayOpenedCount = -1
 	})
 
-	systray.OnTrayOpened(func() {
+	wintray.OnTrayOpened(func() {
 		if trayOpenedCount == -1 {
 			return
 		}

@@ -1,5 +1,5 @@
-module github.com/merlinz01/systray
+module github.com/merlinz01/wintray
 
 go 1.19
 
-require golang.org/x/sys v0.15.0
+require golang.org/x/sys v0.29.0

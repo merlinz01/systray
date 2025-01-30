@@ -1,6 +1,6 @@
 //go:build windows
 
-package systray
+package wintray
 
 import (
 	"unsafe"
